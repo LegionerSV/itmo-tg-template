@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import secrets
+import socket
 import time
 from dataclasses import replace
 
@@ -33,8 +34,23 @@ def database():
     volume = name + "-data"
     password = secrets.token_urlsafe(24)
 
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+
     def docker(*args):
         return run_command(["docker", *args], label="Интеграционный Docker-тест", timeout=180)
+
+    def wait_until_ready():
+        deadline = time.monotonic() + 60
+        while True:
+            try:
+                docker("exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "bot", "-d", "bot")
+                return
+            except CommandError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(1)
 
     docker("info")
     docker("volume", "create", volume)
@@ -45,7 +61,7 @@ def database():
             "--name",
             name,
             "-p",
-            "127.0.0.1::5432",
+            f"127.0.0.1:{port}:5432",
             "-e",
             "POSTGRES_DB=bot",
             "-e",
@@ -57,16 +73,8 @@ def database():
             "postgres:16-bookworm",
         )
         info = json.loads(docker("inspect", name))[0]
-        port = int(info["NetworkSettings"]["Ports"]["5432/tcp"][0]["HostPort"])
-        deadline = time.monotonic() + 60
-        while True:
-            try:
-                docker("exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "bot", "-d", "bot")
-                break
-            except CommandError:
-                if time.monotonic() >= deadline:
-                    raise
-                time.sleep(1)
+        assert int(info["NetworkSettings"]["Ports"]["5432/tcp"][0]["HostPort"]) == port
+        wait_until_ready()
         yield (
             Settings(
                 bot_token="123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijk",
@@ -74,6 +82,7 @@ def database():
                 postgres_port=port,
             ),
             docker,
+            wait_until_ready,
             name,
         )
     finally:
@@ -85,7 +94,7 @@ def database():
 
 async def test_real_db_password_restart_health_and_persistence(database):
     # Arrange
-    settings, docker, name = database
+    settings, docker, wait_until_ready, name = database
     pool = await create_pool(settings)
     task = asyncio.create_task(asyncio.Event().wait())
     state = HealthState(pool=pool, initialized=True, polling_task=task)
@@ -100,6 +109,7 @@ async def test_real_db_password_restart_health_and_persistence(database):
         await asyncio.to_thread(docker, "stop", name)
         assert (await health_result(state))[0] == 503
         await asyncio.to_thread(docker, "start", name)
+        await asyncio.to_thread(wait_until_ready)
         for _ in range(60):
             if (await health_result(state))[0] == 200:
                 break
