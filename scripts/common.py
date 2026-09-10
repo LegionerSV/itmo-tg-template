@@ -21,6 +21,7 @@ def run_command(
     timeout: int = 120,
     interactive: bool = False,
     input_text: str | None = None,
+    error_prefix: str | None = None,
 ) -> str:
     try:
         result = subprocess.run(
@@ -43,7 +44,19 @@ def run_command(
         raise CommandError(f"{label}: не удалось запустить программу.") from None
     if result.returncode:
         # Вывод сторонних программ может содержать env и токены; не печатаем его.
-        raise CommandError(f"{label}: команда завершилась с кодом {result.returncode}.")
+        message = f"{label}: команда завершилась с кодом {result.returncode}."
+        if error_prefix:
+            detail = next(
+                (
+                    line.strip()
+                    for line in (result.stderr or "").splitlines()
+                    if line.strip().startswith(error_prefix)
+                ),
+                None,
+            )
+            if detail:
+                message = f"{message} {detail}"
+        raise CommandError(message)
     return result.stdout or ""
 
 

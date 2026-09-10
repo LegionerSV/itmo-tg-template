@@ -65,4 +65,5 @@ def test_local_and_cloud_compose_ports_credentials_and_healthchecks(tmp_path):
     assert cloud["bot"]["environment"]["POSTGRES_HOST"] == "db"
     assert cloud["bot"]["environment"]["POSTGRES_PORT"] == "5432"
     assert "app.healthcheck" in cloud["bot"]["healthcheck"]["test"]
+    assert cloud["bot"]["healthcheck"]["timeout"] == "20s"
     assert cloud["bot"]["depends_on"]["db"]["condition"] == "service_healthy"

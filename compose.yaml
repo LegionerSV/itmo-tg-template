@@ -40,7 +40,7 @@ services:
     healthcheck:
       test: ["CMD", "python", "-m", "app.healthcheck"]
       interval: 10s
-      timeout: 6s
+      timeout: 20s
       retries: 6
       start_period: 45s
     logging:

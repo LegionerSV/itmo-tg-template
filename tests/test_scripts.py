@@ -89,6 +89,22 @@ def test_command_stderr_not_leaked(monkeypatch):
     assert "secret" not in str(exc.value)
 
 
+def test_command_can_show_prefixed_safe_error(monkeypatch):
+    # Arrange
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        Mock(
+            return_value=subprocess.CompletedProcess(
+                ["tool"], 1, "secret-out", "debug details\nERROR: quota exceeded\n"
+            )
+        ),
+    )
+    # Act / Assert
+    with pytest.raises(CommandError, match="ERROR: quota exceeded"):
+        run_command(["tool"], label="Ошибка инструмента", error_prefix="ERROR:")
+
+
 class FakeYC:
     def __init__(self):
         self.resources = {}
@@ -196,6 +212,39 @@ def test_delete_requires_confirmation_and_only_deletes_owned_ids(tmp_path):
     assert "foreign" in fake.resources[("vpc", "network")]
 
 
+def test_cloud_reuses_default_network_and_does_not_delete_it(tmp_path):
+    # Arrange
+    from scripts.cli import parser
+
+    fake = FakeYC()
+    default_network = {
+        "id": "default-network-id",
+        "name": "default",
+        "labels": {},
+        "folder_id": "folder-1",
+    }
+    fake.resources[("vpc", "network")] = {default_network["id"]: default_network}
+    deployment = cloud(tmp_path, fake)
+    # Имитируем повтор после сбоя при первой попытке создать сеть.
+    deployment.state["resources"]["network"] = {"name": f"itmo-{deployment.state['owner']}-network"}
+    deployment.save()
+    key = tmp_path / ".deploy" / "id_ed25519"
+    key.write_text("test-private-key", encoding="utf-8")
+    key.with_suffix(".pub").write_text("ssh-ed25519 test-public-key", encoding="utf-8")
+    args = parser().parse_args(["cloud", "up", "--ssh-cidr", "203.0.113.10/32"])
+    # Act
+    deployment.provision(args)
+    deployment.destroy(confirmed=True)
+    # Assert
+    assert fake.created == [
+        ("vpc", "subnet"),
+        ("vpc", "security-group"),
+        ("compute", "instance"),
+    ]
+    assert default_network["id"] in fake.resources[("vpc", "network")]
+    assert all(kind != ("vpc", "network") for kind, _ in fake.deleted)
+
+
 def test_deploy_archive_never_contains_env_or_keys(tmp_path):
     # Arrange
     import tarfile
@@ -256,6 +305,7 @@ def test_provision_builds_private_network_and_nonpreemptible_vm(tmp_path, monkey
     assert "auto-delete=true" in vm[vm.index("--create-boot-disk") + 1]
     group = next(c for c in calls if c[:3] == ["vpc", "security-group", "create"])
     assert "direction=ingress,protocol=tcp,port=22,v4-cidrs=203.0.113.10/32" in group
+    assert "direction=egress,protocol=any,port=any,v4-cidrs=0.0.0.0/0" in group
     initialization = (tmp_path / ".deploy" / "cloud-init.yaml").read_text(encoding="utf-8")
     assert "test-private-key" not in initialization
     assert "BOT_TOKEN" not in initialization
@@ -299,7 +349,15 @@ def test_deploy_uploads_secrets_only_over_ssh_stdin(tmp_path, monkeypatch):
     assert values["BOT_TOKEN"] == "secret-token"
     assert values["POSTGRES_PASSWORD"] == "p$a#s's"
     assert values["POSTGRES_HOST"] == "db"
-    assert any("--wait --wait-timeout 180" in cmd for cmd, _ in calls)
+    cloud_init = next(kwargs for cmd, kwargs in calls if "cloud-init status" in cmd)
+    deployment = next(kwargs for cmd, kwargs in calls if "--wait --wait-timeout 180" in cmd)
+    assert cloud_init["stream_output"] is True
+    assert deployment["stream_output"] is True
+    assert all(
+        not kwargs.get("stream_output", False)
+        for command, kwargs in calls
+        if "base64 -d" in command
+    )
     assert not (tmp_path / ".deploy" / "source.tar.gz").exists()
 
 

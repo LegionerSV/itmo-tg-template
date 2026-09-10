@@ -132,7 +132,10 @@ class Cloud:
         if len(matches) > 1:
             raise CommandError("Найдено несколько одноимённых ресурсов; проверьте консоль облака.")
         if matches:
-            self.verify(matches[0])
+            if record.get("managed", True):
+                self.verify(matches[0])
+            elif matches[0].get("folder_id") != self.state["folder_id"]:
+                raise CommandError("Внешний ресурс относится к другому каталогу Yandex Cloud.")
             return matches[0]
         return None
 
@@ -164,6 +167,34 @@ class Cloud:
         self.save()
         return resource
 
+    def ensure_network(self) -> dict:
+        resource = self.lookup("network", KINDS["network"])
+        if resource is not None:
+            return resource
+        record = self.state["resources"].get("network")
+        if record and record.get("id"):
+            raise CommandError("Ранее использованная сеть исчезла. Проверьте состояние облака.")
+        defaults = [
+            network
+            for network in self.yc([*KINDS["network"], "list"])
+            if network.get("name") == "default"
+        ]
+        if len(defaults) > 1:
+            raise CommandError("Найдено несколько сетей default; проверьте консоль облака.")
+        if defaults:
+            resource = defaults[0]
+            if resource.get("folder_id") != self.state["folder_id"]:
+                raise CommandError("Сеть default относится к другому каталогу Yandex Cloud.")
+            self.state["resources"]["network"] = {
+                "id": resource["id"],
+                "name": resource["name"],
+                "managed": False,
+            }
+            self.save()
+            print("Используем существующую сеть default.", flush=True)
+            return resource
+        return self.ensure("network", KINDS["network"], [])
+
     def destroy(self, *, confirmed: bool) -> None:
         if not confirmed:
             raise CommandError("Необходимо явное подтверждение удаления БД и ресурсов.")
@@ -171,7 +202,8 @@ class Cloud:
         found = {key: self.lookup(key, kind) for key, kind in KINDS.items()}
         for key in reversed(KINDS):
             resource = found[key]
-            if resource:
+            record = self.state["resources"].get(key, {})
+            if resource and record.get("managed", True):
                 self.yc([*KINDS[key], "delete", "--id", resource["id"]])
             self.state["resources"].pop(key, None)
             self.save()
@@ -234,7 +266,7 @@ class Cloud:
         self.state.update(config=config, ssh_cidr=cidr)
         self.save()
         key = self.key()
-        network = self.ensure("network", KINDS["network"], [])
+        network = self.ensure_network()
         subnet = self.ensure(
             "subnet",
             KINDS["subnet"],
@@ -249,7 +281,7 @@ class Cloud:
                 "--rule",
                 f"direction=ingress,protocol=tcp,port=22,v4-cidrs={cidr}",
                 "--rule",
-                "direction=egress,protocol=any,v4-cidrs=0.0.0.0/0",
+                "direction=egress,protocol=any,port=any,v4-cidrs=0.0.0.0/0",
             ],
         )
         cloud_init = self.directory / "cloud-init.yaml"
@@ -320,7 +352,13 @@ class Cloud:
         return self.yc(["compute", "instance", "get", "--id", instance["id"]])
 
     def ssh(
-        self, instance: dict, command: str, *, timeout: int = 120, input_text: str | None = None
+        self,
+        instance: dict,
+        command: str,
+        *,
+        timeout: int = 120,
+        input_text: str | None = None,
+        stream_output: bool = False,
     ) -> str:
         try:
             address = instance["network_interfaces"][0]["primary_v4_address"]["one_to_one_nat"][
@@ -359,6 +397,7 @@ class Cloud:
             label="SSH: проверьте IP/CIDR, ключ, cloud-init и доступность ВМ",
             timeout=timeout,
             input_text=input_text,
+            interactive=stream_output,
         )
 
     def wait_ssh(self, instance: dict) -> None:
@@ -375,7 +414,12 @@ class Cloud:
     def deploy(self, instance: dict, settings: Settings) -> None:
         self.wait_ssh(instance)
         print("Ждём установки Docker на ВМ…", flush=True)
-        self.ssh(instance, "sudo cloud-init status --wait && docker compose version", timeout=900)
+        self.ssh(
+            instance,
+            "sudo cloud-init status --wait && docker compose version",
+            timeout=900,
+            stream_output=True,
+        )
         archive = source_archive(self.root)
         try:
             payload = base64.b64encode(archive.read_bytes()).decode("ascii")
@@ -408,7 +452,7 @@ class Cloud:
             "rm /home/student/course-source.tar.gz; "
             f"{COMPOSE} up -d --build --wait --wait-timeout 180"
         )
-        self.ssh(instance, command, timeout=1200)
+        self.ssh(instance, command, timeout=1200, stream_output=True)
         print(self.ssh(instance, f"{COMPOSE} exec -T bot python -m app.healthcheck"))
         print("Деплой завершён. Статус и логи: deploy status / deploy logs.")
 
@@ -462,6 +506,7 @@ def cloud_main(root: Path, args) -> int:
             [yc_path, *command, "--folder-id", folder, "--format", "json"],
             label="Yandex Cloud: проверьте профиль, права, квоты и параметры ВМ",
             timeout=600,
+            error_prefix="ERROR:",
         )
         return json.loads(output) if output.strip() else {}
 
@@ -469,7 +514,14 @@ def cloud_main(root: Path, args) -> int:
     try:
         if args.action == "destroy":
             name = f"itmo-{deployment.state['owner']}"
-            print(f"Будут удалены ВМ, диск с БД и сеть проекта {name}.")
+            network = deployment.state["resources"].get("network", {})
+            if network.get("managed", True):
+                print(f"Будут удалены ВМ, диск с БД и сеть проекта {name}.")
+            else:
+                print(
+                    "Будут удалены ВМ, диск с БД, подсеть и группа безопасности "
+                    "проекта. Общая сеть default останется."
+                )
             confirmed = input(f"Для подтверждения введите {name}: ").strip() == name
             deployment.destroy(confirmed=confirmed)
         elif args.action == "access":
