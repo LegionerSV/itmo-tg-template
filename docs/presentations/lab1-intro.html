@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Перед лабораторной № 1</title>
+<style>
+  :root {
+    --ink: #111111;
+    --ink-soft: #4a4a4a;
+    --accent: #185FA5;
+    --accent-bg: #E6F1FB;
+    --accent-ink: #0C447C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #ffffff;
+    font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    overflow: hidden;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #deck {
+    width: 1280px;
+    height: 720px;
+    position: relative;
+    transform-origin: center center;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    background: #ffffff;
+    padding: 48px 72px 38px;
+    display: none;
+    flex-direction: column;
+  }
+  .slide.active { display: flex; }
+
+  .rule { height: 8px; width: 104px; background: var(--accent); margin-bottom: 26px; flex: none; }
+  h1 { font-size: 62px; font-weight: 600; line-height: 1.1; letter-spacing: -0.5px; }
+  h2 { font-size: 43px; font-weight: 600; line-height: 1.15; margin-bottom: 24px; letter-spacing: -0.3px; flex: none; }
+  .sub { font-size: 30px; color: var(--ink-soft); line-height: 1.4; }
+  .body { font-size: 28px; line-height: 1.55; }
+  .body.tight { font-size: 26px; line-height: 1.5; }
+
+  ul { list-style: none; flex: none; }
+  .col ul { flex: initial; }
+  li { font-size: 27px; line-height: 1.4; margin-bottom: 17px; padding-left: 38px; position: relative; }
+  li:before {
+    content: "";
+    position: absolute;
+    left: 0; top: 16px;
+    width: 20px; height: 5px;
+    background: var(--accent);
+  }
+  li.plain:before { display: none; }
+  li small { display: block; font-size: 21px; color: var(--ink-soft); line-height: 1.35; margin-top: 5px; }
+
+  b { font-weight: 600; }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.92em;
+    background: #f2f2f2;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; flex: 1; min-height: 0; }
+  .cols.three { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .col { border: 3px solid var(--ink); border-radius: 10px; padding: 22px 24px; }
+  .col.hi { border-color: var(--accent); background: var(--accent-bg); }
+  .col h3 { font-size: 28px; font-weight: 600; margin-bottom: 14px; }
+  .col.hi h3 { color: var(--accent-ink); }
+  .col p, .col li { font-size: 23px; line-height: 1.4; }
+  .col li { margin-bottom: 12px; padding-left: 28px; }
+  .col li:before { top: 13px; width: 16px; height: 4px; }
+  .col ul.rctf li { padding-left: 44px; }
+  .col ul.rctf li:before {
+    content: attr(data-k);
+    top: -2px;
+    width: auto; height: auto;
+    background: none;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .col.hi li:before { background: var(--accent); }
+  .col.hi p, .col.hi li { color: var(--accent-ink); }
+
+  .flow { display: flex; align-items: stretch; gap: 14px; margin: 6px 0 22px; flex: none; }
+  .flow .node {
+    flex: 1;
+    border: 3px solid var(--ink);
+    border-radius: 10px;
+    padding: 16px 12px;
+    text-align: center;
+    font-size: 22px;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .flow .node.hi { border-color: var(--accent); background: var(--accent-bg); color: var(--accent-ink); font-weight: 600; }
+  .flow .arrow { align-self: center; font-size: 34px; color: var(--accent); font-weight: 600; }
+
+  .msg { border: 3px solid var(--ink); border-radius: 10px; overflow: hidden; flex: none; }
+  .msg .row { display: flex; border-bottom: 3px solid var(--ink); }
+  .msg .row:last-child { border-bottom: none; }
+  .msg .who {
+    width: 210px;
+    flex: none;
+    padding: 16px 22px;
+    font-size: 23px;
+    font-weight: 600;
+    background: var(--accent-bg);
+    color: var(--accent-ink);
+    border-right: 3px solid var(--ink);
+  }
+  .msg .what { padding: 16px 24px; font-size: 23px; line-height: 1.35; }
+
+  .note {
+    margin-top: auto;
+    border-left: 8px solid var(--accent);
+    padding: 12px 0 12px 20px;
+    font-size: 24px;
+    line-height: 1.4;
+    flex: none;
+  }
+
+  footer {
+    margin-top: auto;
+    padding-top: 18px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    color: var(--ink-soft);
+    flex: none;
+  }
+  .slide.title footer { border: none; }
+  .title-wrap { margin: auto 0; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="deck">
+
+<section class="slide title active">
+  <div class="title-wrap">
+    <div class="rule"></div>
+    <h1>Перед лабораторной № 1</h1>
+    <p class="sub" style="margin-top:26px;">Python для тех, кто писал на C++.<br>Языковая модель. Чем чат отличается от агента.</p>
+  </div>
+  <footer><span>Технологии ИИ в разработке ПО · практика</span><span>1 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Компиляция и интерпретация</h2>
+  <div class="cols">
+    <div class="col">
+      <h3>C++</h3>
+      <ul>
+        <li>Компилятор читает весь код заранее</li>
+        <li>На выходе — бинарник, он самодостаточен</li>
+        <li>Опечатка и несовпадение типов ловятся до запуска</li>
+      </ul>
+    </div>
+    <div class="col hi">
+      <h3>Python</h3>
+      <ul>
+        <li>Интерпретатор выполняет код по ходу дела</li>
+        <li>Бинарника нет: нужен сам Python на машине</li>
+        <li>Ошибка в редкой ветке дождётся, пока в неё зайдут</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note">Компилятор вас больше не страхует. Страхуют тесты и линтер — поэтому они в проекте с первого дня.</div>
+  <footer><span>Python</span><span>2 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Библиотеки: не линковка, а установка</h2>
+  <ul>
+    <li>Чужой код не собирается вместе с вашим — он <b>ставится рядом</b> командой <code>pip install</code>
+      <small>И подключается при запуске по имени: <code>import aiogram</code></small></li>
+    <li>Список нужного проекту лежит текстом в <code>requirements.txt</code>
+      <small>Это и есть «сборочный рецепт» проекта: имя библиотеки плюс версия</small></li>
+    <li>Версия интерпретатора тоже часть требований — здесь Python 3.12
+      <small>Код под 3.12 может не запуститься на 3.9: синтаксис и библиотеки разные</small></li>
+  </ul>
+  <div class="note">Отсюда классическая беда: два проекта на одной машине хотят разные версии одной библиотеки.</div>
+  <footer><span>Python</span><span>3 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Виртуальное окружение: свой ящик на проект</h2>
+  <div class="cols">
+    <div class="col">
+      <h3>Без venv</h3>
+      <ul>
+        <li>Все библиотеки валятся в общую системную папку</li>
+        <li>Новый проект ломает предыдущий сменой версии</li>
+      </ul>
+    </div>
+    <div class="col hi">
+      <h3>С venv</h3>
+      <ul>
+        <li>Папка <code>.venv</code> внутри проекта: свой Python и свои библиотеки</li>
+        <li>Проекты не пересекаются, снести и пересоздать — минута</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><code>.venv</code> в репозиторий не коммитят: он собирается из <code>requirements.txt</code> на любой машине.</div>
+  <footer><span>Python</span><span>4 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Как запускается любой проект на Python</h2>
+  <ul>
+    <li><b>1.</b> Создать окружение: <code>python -m venv .venv</code></li>
+    <li><b>2.</b> Активировать его — после этого <code>python</code> и <code>pip</code> означают «из этого проекта»
+      <small>macOS и Linux: <code>source .venv/bin/activate</code> · Windows: <code>.venv\Scripts\activate</code></small></li>
+    <li><b>3.</b> Поставить зависимости: <code>pip install -r requirements.txt</code></li>
+    <li><b>4.</b> Запустить точку входа, которая указана в README проекта
+      <small>README молчит — смотрят <code>pyproject.toml</code>, <code>Makefile</code>, <code>Dockerfile</code> либо ищут файл с <code>if __name__ == "__main__":</code></small></li>
+  </ul>
+  <div class="note">Обязательной функции <code>main</code>, как в C++, здесь нет: запускается тот файл, который вы передали интерпретатору.</div>
+  <footer><span>Python</span><span>5 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Что лежит в шаблоне проекта</h2>
+  <div class="cols three">
+    <div class="col">
+      <h3>Код</h3>
+      <ul>
+        <li><code>app/</code> — бот</li>
+        <li><code>app/handlers/</code> — обработчики команд и сообщений</li>
+        <li><code>tests/</code> — автотесты</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Запуск</h3>
+      <ul>
+        <li><code>requirements.txt</code> — зависимости</li>
+        <li><code>compose.local.yaml</code> — база в Docker</li>
+        <li><code>scripts/</code> — запуск</li>
+      </ul>
+    </div>
+    <div class="col hi">
+      <h3>Настройки</h3>
+      <ul>
+        <li><code>.env.example</code> — образец, едет в git</li>
+        <li><code>.env</code> — ваши ключи, в git не едет никогда</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note">Токен и ключ API живут только в <code>.env</code>. Попал секрет в историю git — считайте его раскрытым.</div>
+  <footer><span>Python</span><span>6 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Что такое языковая модель</h2>
+  <ul>
+    <li>Модель получает текст и <b>достраивает продолжение</b>, выбирая слова по вероятности
+      <small>Она не ищет ответ в базе — она его сочиняет, опираясь на то, чему научилась</small></li>
+    <li>Отсюда два свойства, с которыми придётся жить:
+      <small>уверенно сказанная неправда · разные ответы на один и тот же запрос</small></li>
+    <li>Для вашей программы это <b>внешний сервис по сети</b>
+      <small>Таймаут, ошибка авторизации, лимит запросов, оборванный ответ — обычные события, а не исключения</small></li>
+  </ul>
+  <div class="note">Ответ модели не является доказательством правоты. Доказательство — работающая программа и тест.</div>
+  <footer><span>Языковая модель</span><span>7 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Запрос — это не строка, а список ролей</h2>
+  <div class="msg">
+    <div class="row"><div class="who">system</div><div class="what">Ты помогаешь студенту разобраться в программировании. Отвечай по-русски, коротко, с примером.</div></div>
+    <div class="row"><div class="who">user</div><div class="what">Чем список отличается от кортежа?</div></div>
+    <div class="row"><div class="who">assistant</div><div class="what">Список можно менять, кортеж — нет…</div></div>
+    <div class="row"><div class="who">user</div><div class="what">А какой быстрее?</div></div>
+  </div>
+  <div class="note"><b>system</b> — правила приложения, задаёте вы. <b>user</b> — то, что написал человек. <b>assistant</b> — прошлые ответы модели. Роли путать нельзя: иначе модель увидит искажённый диалог.</div>
+  <footer><span>Языковая модель</span><span>8 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Модель ничего не помнит</h2>
+  <ul>
+    <li>Каждый вызов независим: вчерашней переписки для модели не существует
+      <small>«Память» бота — это прошлые сообщения, которые вы сами приложили к новому запросу</small></li>
+    <li>Значит, историю хранит ваше приложение — в базе, отдельно по каждому пользователю
+      <small>Перезапустили бота — история на месте: она в PostgreSQL, а не в памяти процесса</small></li>
+    <li>Приложить всё не выйдет: объём запроса ограничен
+      <small>Контекст считается в токенах — кусочках слов; историю приходится обрезать, сохраняя порядок и роли</small></li>
+  </ul>
+  <div class="note">Два пользователя — две независимые истории. Перепутать их — не косметический баг, а утечка чужой переписки.</div>
+  <footer><span>Языковая модель</span><span>9 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Системная инструкция</h2>
+  <div class="cols">
+    <div class="col">
+      <h3>Что в неё кладут: R.C.T.F.</h3>
+      <ul class="rctf">
+        <li data-k="R"><b>Role</b> — роль: кем работает ассистент</li>
+        <li data-k="C"><b>Context</b> — контекст: что известно о ситуации</li>
+        <li data-k="T"><b>Task</b> — задача: что именно сделать</li>
+        <li data-k="F"><b>Format</b> — формат: язык, объём, структура ответа</li>
+      </ul>
+    </div>
+    <div class="col hi">
+      <h3>Чего не кладут</h3>
+      <ul>
+        <li>Ключи, пароли, токены</li>
+        <li>Правила «кому что можно»</li>
+      </ul>
+      <p style="margin-top:14px;">Инструкция направляет модель, но не защищает: пользователь может попросить её нарушить.</p>
+    </div>
+  </div>
+  <div class="note">Ограничения проверяет код приложения. Всегда, независимо от того, что ответила модель.</div>
+  <footer><span>Языковая модель</span><span>10 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Чат и агент — разница не в уме</h2>
+  <div class="cols">
+    <div class="col">
+      <h3>Диалоговое приложение</h3>
+      <ul>
+        <li>Текст вошёл — текст вышел</li>
+        <li>Внешнего мира не существует: ни погоды, ни вашей базы, ни отправки письма</li>
+        <li>Знает только то, что выучила, и то, что вы приложили к запросу</li>
+      </ul>
+      <p style="margin-top:12px;"><b>Это лабораторная № 1</b></p>
+    </div>
+    <div class="col hi">
+      <h3>Агент</h3>
+      <ul>
+        <li>Модель выбирает действие из <b>разрешённого</b> списка</li>
+        <li>Действие выполняет ваш код и возвращает результат</li>
+        <li>С этим результатом модель формулирует ответ</li>
+      </ul>
+      <p style="margin-top:12px;"><b>Это лабораторные № 2 и № 3</b></p>
+    </div>
+  </div>
+  <div class="note">Агент не умнее — он <b>дотягивается до мира</b>. Модель предлагает действие, разрешает и выполняет его всегда код.</div>
+  <footer><span>Чат и агент</span><span>11 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Как это выглядит у агента</h2>
+  <div class="flow">
+    <div class="node">Вопрос<br>пользователя</div>
+    <div class="arrow">→</div>
+    <div class="node hi">Модель выбирает<br>действие</div>
+    <div class="arrow">→</div>
+    <div class="node">Код проверяет<br>и выполняет</div>
+    <div class="arrow">→</div>
+    <div class="node hi">Модель отвечает<br>по результату</div>
+  </div>
+  <ul>
+    <li>«Какая погода в Питере» — модель просит вызвать погодный сервис, код его дёргает, модель пересказывает ответ</li>
+    <li>Список доступных действий и права — на стороне приложения, а не в тексте промпта</li>
+  </ul>
+  <div class="note">В лабораторной № 1 этой петли ещё нет. Но слои в коде вы разделяете уже сейчас — чтобы её было куда встроить.</div>
+  <footer><span>Чат и агент</span><span>12 / 13</span></footer>
+</section>
+
+<section class="slide">
+  <div class="rule"></div>
+  <h2>Путь сообщения в лабораторной № 1</h2>
+  <div class="flow">
+    <div class="node">Telegram</div>
+    <div class="arrow">→</div>
+    <div class="node">Обработчик</div>
+    <div class="arrow">→</div>
+    <div class="node hi">История<br>пользователя</div>
+    <div class="arrow">→</div>
+    <div class="node hi">Клиент<br>модели</div>
+  </div>
+  <div class="flow">
+    <div class="node">Telegram</div>
+    <div class="arrow">←</div>
+    <div class="node">Подготовка<br>ответа</div>
+    <div class="arrow">←</div>
+    <div class="node">Результат модели</div>
+    <div class="arrow" style="visibility:hidden;">←</div>
+    <div class="node" style="visibility:hidden;"></div>
+  </div>
+  <div class="note">Каждый прямоугольник — отдельная часть кода. Обработчик не ходит в сеть и не пишет SQL: тогда его можно протестировать без Telegram и без живой модели.</div>
+  <footer><span>Итог</span><span>13 / 13</span></footer>
+</section>
+
+</div></div>
+
+<script>
+  var slides = document.querySelectorAll('.slide');
+  var deck = document.getElementById('deck');
+  var i = 0;
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    for (var k = 0; k < slides.length; k++) {
+      slides[k].classList.toggle('active', k === i);
+    }
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  function fit() {
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    deck.style.transform = 'scale(' + s + ')';
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ' || e.key === 'Enter') { show(i + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'Backspace') { show(i - 1); e.preventDefault(); }
+    else if (e.key === 'Home') { show(0); }
+    else if (e.key === 'End') { show(slides.length - 1); }
+  });
+
+  document.addEventListener('click', function (e) {
+    show(e.clientX < window.innerWidth / 3 ? i - 1 : i + 1);
+  });
+
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function () {
+    var n = parseInt(location.hash.slice(1), 10);
+    if (n) show(n - 1);
+  });
+
+  fit();
+  var start = parseInt(location.hash.slice(1), 10);
+  show(start ? start - 1 : 0);
+</script>
+</body>
+</html>
